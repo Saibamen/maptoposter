@@ -758,7 +758,7 @@ Examples:
     available_themes = get_available_themes()
     if not available_themes:
         print("No themes found in 'themes/' directory.")
-        os.sys.exit(1)
+        sys.exit(1)
 
     if args.all_themes:
         themes_to_generate = available_themes
@@ -766,7 +766,7 @@ Examples:
         if args.theme not in available_themes:
             print(f"Error: Theme '{args.theme}' not found.")
             print(f"Available themes: {', '.join(available_themes)}")
-            os.sys.exit(1)
+            sys.exit(1)
         themes_to_generate = [args.theme]
 
     print("=" * 50)
