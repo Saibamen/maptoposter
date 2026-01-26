@@ -317,12 +317,12 @@ def get_coordinates(city, country):
     if asyncio.iscoroutine(location):
         try:
             location = asyncio.run(location)
-        except RuntimeError:
+        except RuntimeError as exc:
             # If an event loop is already running, try using it to complete the coroutine.
             loop = asyncio.get_event_loop()
             if loop.is_running():
                 # Running event loop in the same thread; raise a clear error.
-                raise RuntimeError("Geocoder returned a coroutine while an event loop is already running. Run this script in a synchronous environment.")
+                raise RuntimeError("Geocoder returned a coroutine while an event loop is already running. Run this script in a synchronous environment.") from exc
             location = loop.run_until_complete(location)
 
     if location:
@@ -451,7 +451,7 @@ def fetch_features(point, dist, tags, name) -> GeoDataFrame | None:
         return None
 
 
-def create_poster(city, country, point, dist, output_file, output_format, width=12, height=16, country_label=None, name_label=None):
+def create_poster(city, country, point, dist, output_file, output_format, width=12, height=16, country_label=None, _name_label=None):
     """
     Generate a complete map poster with roads, water, parks, and typography.
 
@@ -468,7 +468,7 @@ def create_poster(city, country, point, dist, output_file, output_format, width=
         width: Poster width in inches (default: 12)
         height: Poster height in inches (default: 16)
         country_label: Optional override for country text on poster
-        name_label: Optional override for city name (unused)
+        _name_label: Optional override for city name (unused, reserved for future use)
 
     Raises:
         RuntimeError: If street network data cannot be retrieved
