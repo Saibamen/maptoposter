@@ -1,3 +1,11 @@
+"""
+City Map Poster Generator
+
+This module generates beautiful, minimalist map posters for any city in the world.
+It fetches OpenStreetMap data using OSMnx, applies customizable themes, and creates
+high-quality poster-ready images with roads, water features, and parks.
+"""
+
 import argparse
 import asyncio
 import json
@@ -6,7 +14,6 @@ import pickle
 import sys
 import time
 from datetime import datetime
-from hashlib import md5
 from pathlib import Path
 from typing import cast
 
@@ -17,7 +24,6 @@ import osmnx as ox
 from geopandas import GeoDataFrame
 from geopy.geocoders import Nominatim
 from lat_lon_parser import parse
-from matplotlib.figure import Figure
 from matplotlib.font_manager import FontProperties
 from networkx import MultiDiGraph
 from shapely.geometry import Point
@@ -39,10 +45,31 @@ class CacheError(Exception):
     pass
 
 def _cache_path(key: str) -> str:
+    """
+    Generate a safe cache file path from a cache key.
+    
+    Args:
+        key: Cache key identifier
+        
+    Returns:
+        Path to cache file with .pkl extension
+    """
     safe = key.replace(os.sep, "_")
     return os.path.join(CACHE_DIR, f"{safe}.pkl")
 
 def cache_get(key: str):
+    """
+    Retrieve a cached object by key.
+    
+    Args:
+        key: Cache key identifier
+        
+    Returns:
+        Cached object if found, None otherwise
+        
+    Raises:
+        CacheError: If cache read operation fails
+    """
     try:
         path = _cache_path(key)
         if not os.path.exists(path):
@@ -50,9 +77,19 @@ def cache_get(key: str):
         with open(path, "rb") as f:
             return pickle.load(f)
     except Exception as e:
-        raise CacheError(f"Cache read failed: {e}")
+        raise CacheError(f"Cache read failed: {e}") from e
 
 def cache_set(key: str, value):
+    """
+    Store an object in the cache.
+    
+    Args:
+        key: Cache key identifier
+        value: Object to cache (must be picklable)
+        
+    Raises:
+        CacheError: If cache write operation fails
+    """
     try:
         if not os.path.exists(CACHE_DIR):
             os.makedirs(CACHE_DIR)
@@ -60,7 +97,7 @@ def cache_set(key: str, value):
         with open(path, "wb") as f:
             pickle.dump(value, f, protocol=pickle.HIGHEST_PROTOCOL)
     except Exception as e:
-        raise CacheError(f"Cache write failed: {e}")
+        raise CacheError(f"Cache write failed: {e}") from e
 
 def load_fonts():
     """
@@ -262,7 +299,7 @@ def get_coordinates(city, country):
     try:
         location = geolocator.geocode(f"{city}, {country}")
     except Exception as e:
-        raise ValueError(f"Geocoding failed for {city}, {country}: {e}")
+        raise ValueError(f"Geocoding failed for {city}, {country}: {e}") from e
 
     # If geocode returned a coroutine in some environments, run it to get the result.
     if asyncio.iscoroutine(location):
@@ -329,6 +366,19 @@ def get_crop_limits(g_proj, center_lat_lon, fig, dist):
 
 
 def fetch_graph(point, dist) -> MultiDiGraph | None:
+    """
+    Fetch street network graph from OpenStreetMap.
+    
+    Uses caching to avoid redundant downloads. Fetches all network types
+    within the specified distance from the center point.
+    
+    Args:
+        point: (latitude, longitude) tuple for center point
+        dist: Distance in meters from center point
+        
+    Returns:
+        MultiDiGraph of street network, or None if fetch fails
+    """
     lat, lon = point
     graph = f"graph_{lat}_{lon}_{dist}"
     cached = cache_get(graph)
@@ -350,6 +400,21 @@ def fetch_graph(point, dist) -> MultiDiGraph | None:
         return None
 
 def fetch_features(point, dist, tags, name) -> GeoDataFrame | None:
+    """
+    Fetch geographic features (water, parks, etc.) from OpenStreetMap.
+    
+    Uses caching to avoid redundant downloads. Fetches features matching
+    the specified OSM tags within distance from center point.
+    
+    Args:
+        point: (latitude, longitude) tuple for center point
+        dist: Distance in meters from center point
+        tags: Dictionary of OSM tags to filter features
+        name: Name for this feature type (for caching and logging)
+        
+    Returns:
+        GeoDataFrame of features, or None if fetch fails
+    """
     lat, lon = point
     tag_str = "_".join(tags.keys())
     features = f"{name}_{lat}_{lon}_{dist}_{tag_str}"
@@ -372,6 +437,27 @@ def fetch_features(point, dist, tags, name) -> GeoDataFrame | None:
         return None
 
 def create_poster(city, country, point, dist, output_file, output_format, width=12, height=16, country_label=None, name_label=None):
+    """
+    Generate a complete map poster with roads, water, parks, and typography.
+    
+    Creates a high-quality poster by fetching OSM data, rendering map layers,
+    applying the current theme, and adding text labels with coordinates.
+    
+    Args:
+        city: City name for display on poster
+        country: Country name for display on poster
+        point: (latitude, longitude) tuple for map center
+        dist: Map radius in meters
+        output_file: Path where poster will be saved
+        output_format: File format ('png', 'svg', or 'pdf')
+        width: Poster width in inches (default: 12)
+        height: Poster height in inches (default: 16)
+        country_label: Optional override for country text on poster
+        name_label: Optional override for city name (unused)
+        
+    Raises:
+        RuntimeError: If street network data cannot be retrieved
+    """
     print(f"\nGenerating map for {city}, {country}...")
 
     # Progress bar for data fetching
